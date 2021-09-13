@@ -1,6 +1,6 @@
 ---
 title: "lab_01"
-author: "sean mussenden"
+author: "Jerold Massie"
 date: "8/19/2021"
 output: html_document
 ---
@@ -46,7 +46,7 @@ wv_ppp_loans <- read_rds("lab_01.rds")
 
 **Task** Run the codeblock below to use glimpse to get a sense of the column names, types and sample data. 
 **Q1** How many rows and columns does this dataframe have?
-**A1** [write your answer here]
+**A1** [33703 Rows and 63 Columns]
 
 ```{r}
 glimpse(wv_ppp_loans)
@@ -55,33 +55,45 @@ glimpse(wv_ppp_loans)
 ## Answer questions
 
 **Q2** Which West Virginia county got the most loans? How many?
-**A2** [write your answer here]
+**A2** [KANAWHA/4332]
 
 ```{r}
 # Write the code to produce your answer here
-
+wv_ppp_loans %>%
+  group_by(project_county_name) %>%
+  summarise(
+    count_loans = n()
+  ) %>%
+  arrange(desc(count_loans))
 ```
 **Q3** Which West Virginia county got the fewest loans? How many?
-**A3** [write your answer here]
+**A3** [WIRT/36]
 
 ```{r}
 # Write the code to produce your answer here
-
+wv_ppp_loans %>%
+  group_by(project_county_name) %>%
+  summarise(
+    count_loans = n()
+  ) %>%
+  arrange((count_loans))
 ```
 **Q4** What's your best educated guess to explain why the county identified in question 2 had a lot of loans and why the county identified in question 3 had only a few loans? Hint: you won't find the answer in the data, you'll need to do some quick web research. You do not need to write any code for this question, so no codeblock is provided.  
-**A4** [write your answer here]
+**A4** [According to 2020 census data, Kanawha County has a populaiton of 178,124, where as Wirt County has a population of 5,821.]
 
 
 **Q5** What West Virginia business got the state's largest PPP loan? How much was it for? What does the business do? How many jobs did the loan retain, according to the data?
-**A5** [write your answer here]
+**A5** [GREENBRIAR HOTEL CORPORATION got the largest PPP loan in West Virginia for $8.9 million dollors. The company retained 500 jobs.]
 
 ```{r}
 # Write the code to produce your answer here
-
+wv_ppp_loans %>%
+  arrange(desc(amount))
 ```
 
 **Q6** What West Virginia politician (with his family) owns the company identified in question 2? What's your source for that information? Hint: this will require web research, you won't be able to answer this purely from the data set.  You do not need to write any code for this question, so no codeblock is provided.  
-**A6** [write your answer here]
+**A6** [According to a 2019 ProPublica article, West Virginia Gov. Jim Justice is the owner of the Greenbrier resort and is also the richest man in the state.
+https://www.propublica.org/article/west-virginia-greenbrier-governor-jim-justice-little-trump]
 
 **Q7**. Produce a summary table that has the following information for West Virginia as a whole (the whole state, not by county):
 * count of loans
@@ -93,9 +105,20 @@ glimpse(wv_ppp_loans)
 
 Store it as a variable object called `wv_summary` so that you can examine it with the data viewer. What newsworthy nuggets jump out at you that you could imagine dropping into a news story? Write a few summary sentences with overall findings. 
 
-**A7** [write your answer here]
+**A7** [The total number of loans is 33703, the total amount is over $2.6 billion, the average amount for loans is $77,338, the median amount is $20,832, the smallest loan is for $165, and the largest loan is for over $8.9 million. The large discrepancy between the mean and median is something to look into, meaning there may have been few very large loans that are pulling the average up. Also the smallest loan of $165 could be an interesting piece on a smaller business, trying to answer why they needed such a specifc, small amount.]
 ```{r}
 # Write the code to produce your answer here
+wv_summary <-
+  wv_ppp_loans %>%
+  summarise(
+    count_of_loans = n(),
+    total_loan_amount = sum(amount),
+    average_loan_amount = mean(amount),
+    median_loan_amount = median(amount),
+    smallest_loan = min(amount),
+    largest_loan = max(amount)
+    
+  ) 
 ```
 
 **Q8** Produce a summary table that has the following information for each West Virginia county:
@@ -110,7 +133,18 @@ Store it as a variable object called `wv_county_summary` so that you can examine
 
 What newsworthy nuggets or patterns jump out at you that you could imagine dropping into a news story or doing follow up reporting on? Write up a few sentence that summarizes one county. 
 
-**A8** [write your answer here]
+**A8** [Kanawha County tied for the smallest loan amount with another county at $165, but also has a fairly high largest loan at $5.5 million. A comparison between the businesses at these two extremes and their circumstances could be very interesting. Another interesting tidbit is that the counties with the most loans don't neccessarily have the highest amount disbursed. For example, Cabell County disbrused 1993 loans and almost $235 million, and Monongalia county disbursed 2564 loans but only $181 million.]
 ```{r}
 # Write the code to produce your answer here
+wv_county_summary <-
+  wv_ppp_loans %>%
+  group_by(project_county_name) %>%
+  summarise(
+    count_of_loans = n(),
+    total_loan_amount = sum(amount),
+    average_loan_amount = mean(amount),
+    median_loan_amount = median(amount),
+    smallest_loan = min(amount),
+    largest_loan = max(amount)
+    )
 ```
