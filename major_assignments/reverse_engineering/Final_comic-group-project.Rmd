@@ -3,15 +3,8 @@ title: "Comic Gender Disparity"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
-```{r}
-plot(cars)
-```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+We first had to call specific libraries in order to reverse engineer our data. We used lubridate to help clean the data, tidyverse and refinr to organize it, and ggplot2/ggthemes to display it. We also had to create our libraries for the data we'd be referencing. We did so by loading the data into a data folder and then storing it in its respective variables.
 ```{r}
 options(scipen=999)
 library(lubridate)
@@ -34,9 +27,10 @@ marvel_wikia_data <- read_csv("data/marvel-wikia-data.csv")
 
 
 ```
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+Elie:
+My two datasets were basically identical, with the only difference being the usage of the number 100 instead of the number 100 as a filter.  I began by applying the number filter, and then applying the gender filter.  I also created a new dataframe that created our percentages.  I did this by dividing our number of females seen over 10 or 100 times, and then multiplying that number by 100.  To make things look nicer, I also created a bar plot with male and female ratios.  I did this system for both Marvel and D.C.  characters.
 
 ```{r}
 #Elie-Percent Female (10 >= appearances)
@@ -104,6 +98,8 @@ barplot(c(percentage_of_women_in_marvel, 100-percentage_of_women_in_marvel),name
 
 ```
 
+JR:
+The first thing I needed to do was filter for female characters so that Rosa and I could tackle the next problem. In the original article, this data was used to talk about Ms. or Captain Marvel who had recently starred in her own movie. I initially had a different result but was eventually able to figure out I needed to remove/filter for characters whose ID was "NA," in order to get the same results as FiveThirtyEight.
 ```{r}
 #Jerold-Female Marvel Characters
 marvel_female_characters <- marvel_wikia_data %>%
@@ -114,6 +110,8 @@ marvel_female_characters <- marvel_wikia_data %>%
   )
 ```
 
+JR/Rosa:
+Rosa and I ended up working on this section together. It helped because my section was very easy and overlapped with her's. We used a lot of variables, more than needed, so that we could make sure we were getting good, accurate, results along the way. First we filtered for the men and women in each universe. Then we found the number of all four categories who had secret identities and determined the percentage in each category. We ended up getting the exact same results as FiveThirtyEight after we finished. After we knew we had the correct answer we wanted to display it all together and created the dc_percent and marvel_percent variables that showed men, women, and percentage at once for their respective universes.
 ```{r}
 #Rosa-Secret Identities
 
@@ -191,6 +189,10 @@ dc_percent <-
 marvel_percent <-
   bind_rows(marvel_women_percent, marvel_men_percent)
 ```
+
+
+Tatyana:
+I ran into some issues trying to display this, so I kept my code for male and female characters separate. At first, I tried to group by align and sex but it wasn’t answering my question, which was: what is the alignment breakdown by gender? Once I started filtering for female characters and male characters, my tibbles were answering my question. I was able to come to the same conclusion as Hickey, which found that there are overwhelmingly more male characters than female characters. 
 
 
 ```{r}
