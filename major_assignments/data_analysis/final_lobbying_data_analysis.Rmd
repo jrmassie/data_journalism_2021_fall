@@ -1,0 +1,747 @@
+ ---
+title: "MD Lobbying Data Analysis"
+authors: Elie, JR, Rosa, Tatyana 
+output: html_notebook
+---
+
+We are using the Maryland Lobbyist Registrations data for our project. We wanted to look at how lobbying behavior changed in various industries and identify any newsworthy behavior by specific lobbyists. We looked at reports from 2018 to present day to get a more accurate picture of what lobbying looked like before and during the pandemic. Our most interesting finding was that 2021 had a much greater total number of gift expenses than 2020 and 2019.  We also found that 38 percent of registered lobbyists on the complete list have registered in the past year. The increase is signaled to reflect the pandemic being normalized and the economy regaining its foothold which is supported by the increase in gift expenses in 2021. In education we found that the data’s obtusness calls into question whether the data truly achieves transparency and that inaccuracies found raise questions about the data itself. The main issues are having no data for higher education from 2017 to 2018 and leaving out a high profile university, Stevenson University, from the state’s own categorized higher education data.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Turn off scientific notation
+options(scipen=999)
+
+install.packages("ggrepel")
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(ggrepel)
+library(sf)
+
+
+```
+Loading data frames 
+
+```{r}
+
+#pulled data from 08/01/2018 to present day to give ourselves the chance to compare numbers from covid times to pre-covid times. 
+
+all_registrations <- read_csv("data/registrations.csv") %>%
+  clean_names()
+
+all_activity_reports <- read_csv("data/activity_reports.csv") %>%
+  clean_names()
+
+
+
+
+```
+
+```{r}
+
+glimpse(all_activity_reports)
+
+#Rows: 10,000 and Columns: 19 from glimpse 
+
+glimpse(all_registrations)
+
+#Rows: 9,819 and Columns: 5 from glimpse
+
+#looking to see how many clients each registered lobbyist has had from 2018 to present day
+
+all_registrations %>% 
+  group_by(lobbyist_registrant) %>% 
+  summarise(total_lobbyists =n()) %>% 
+  arrange(desc(total_lobbyists))
+
+
+
+```
+
+Elie- I began my search by thinking in vague terms: How did lobbying activity change from 2019 to 2021? I figured this was relevant because the coronavirus may have caused an increase or decrease in the amount of healthcare companies lobbying at the state level. 
+
+
+Figuring out the change in lobbying trends from 2019 to 2021 was quite challenging for me.  I began by loading the data related to expenses by reading csv’s into the dataset.  I then cleaned up the data by removing NA values, and did a bit more necessary pre-processing.  I next converted the data to a date format, and then converted the data into a numerical format.  I filtered out the data by on the year, and created columns for each year.  I used the c() setting to combine the years into one graph, and made each bar a different color.  
+
+```{r}
+expenses_data <- read.csv("data/activity_reports.csv") #Loading data related to expenses
+head(expenses_data)
+str(expenses_data)
+
+sum(is.na(expenses_data))     #Checking NA values
+
+expenses_data <- na.omit(expenses_data) #removing Na values 
+
+sum(is.na(expenses_data))     #Checking NA values
+#Data pre-processing
+expenses_data$from <- lubridate::mdy(stringr::str_extract(expenses_data$Reporting.Period,"^.*?(?=-)"))  
+expenses_data$DATE <- lubridate::mdy(stringr::str_extract(expenses_data$Reporting.Period,"(?=-).*?$")) 
+
+#Conversion to date format
+expenses_data$DATE <- as.Date(expenses_data$DATE, format = "%y.%m.%d")
+expenses_data$year <- factor(year(expenses_data$DATE))
+
+#Converting expenses data into desired numerical format
+expenses_data$Gift.expenses<- gsub(",", "", expenses_data$Gift.expenses) 
+expenses_data$Gift.expenses <- as.numeric(gsub("\\$", "",expenses_data$Gift.expenses))
+
+expenses_data$Total.Expenses<- gsub(",", "", expenses_data$Total.Expenses) 
+expenses_data$Total.Expenses <-  as.numeric(gsub("\\$", "",expenses_data$Total.Expenses))
+expenses_data$Total.Expenses
+
+
+#Yearly data
+expenses_data_2019 <-expenses_data %>% filter(year==2019) #Filtering data based on year
+expenses_data_2020 <-expenses_data %>% filter(year==2020)
+expenses_data_2021 <-expenses_data %>% filter(year==2021)
+
+
+
+colSums(expenses_data_2019[,c(18,19)])
+colSums(expenses_data_2020[,c(18,19)])
+colSums(expenses_data_2021[,c(18,19)])
+
+#--------------------------------------Comparison of expenses------------------------------
+#Bar chart of gift expenses
+Year <- c("2019","2020","2021")
+colors = c("pink","orange","brown")
+
+
+```
+At this point I was receiving a confusing error, so I showed my work to a friend with R studio experience. He showed me how to use the c() function to combine vectors.  I then did the finishing touches of labeling the bar chart, and I did this process for both gift and total expenses.  
+```{r}
+#Gift expenses
+Gift_expense <- c(0,10611.15,22389.45)
+
+
+barplot(Gift_expense,names.arg=Year,xlab="Annual Gift expenses",ylab="Value",col=colors,
+        main="Bar Plot of Annual Gift Expenses",border="red")
+
+#Insight: Year 2021 has the highest gift expenses per year, followed by 2020 &  2019.
+
+#Bar Chart of Total expenses
+Total_expense <- c(214364.4,53663896.03,48997067.94)
+
+
+barplot(Total_expense,names.arg=Year,xlab="Annual Total expenses",ylab="Value",col=colors,
+        main="Bar Plot of  Total Expenses per year",border="red")
+
+#Year 2020 has highest total expenses per year followed by 2021 &  2019, but not by a significant amount.
+```
+
+Next up, I compared total registrants.  I read the CSV file, got the annual dates, got the “year” based data, and created tables to count the lobby registrants per year.  I combined the years, made a range of colors, and created labels of my bar chart. 
+
+```{r}
+lobby_registrant <- read.csv("data/lobbying_registrations.csv")
+names(lobby_registrant)
+
+#Getting annual dates
+lobby_registrant$from <- lubridate::mdy(stringr::str_extract(lobby_registrant$Registration.Period,"^.*?(?=-)"))  
+lobby_registrant$DATE <- lubridate::mdy(stringr::str_extract(lobby_registrant$Registration.Period,"(?=-).*?$")) 
+
+#Getting "year" based data
+lobby_registrant$DATE <- as.Date(lobby_registrant$DATE, format = "%y.%m.%d")
+lobby_registrant$year <- factor(year(lobby_registrant$DATE))
+
+#Counting lobby registrants per year
+table(lobby_registrant$year)
+table(lobby_registrant$year)
+
+
+#Bar chart of lobby registrants per year
+Yearl <- c("2019","2020","2021","2022","2023")
+colorsl = c("pink","orange","brown","red","navyblue")
+
+#Lobby registrants
+lobby_registrants_year <- c(46,3593, 3505, 2355,2 )
+
+
+barplot(lobby_registrants_year,names.arg=Yearl,xlab="Annual Gift expenses",ylab="Value",col=colorsl,
+        main="Bar Plot of Lobby Registrants per year",border="red")
+```
+
+ I found that 2020 and 2021 overall had pretty similar lobby registrants, so there was not much of a story there.  
+
+My most significant finding here was the increase in gift expenses in 2021 over 2020 and 2019.  So why is this?  There are several possible reasons, and they all may be related to covid.  While the coronavirus had a partial effect on 2020, it has thus far affected all of 2021 to some extent. Covid may have led to gifts being more expensive, as things like food may now need to be individually wrapped. Furthemore, as the pandemic starts to wind down, people may be compensating for a lack of ability to give gifts the year before.  To test these findings out, we would need a full list of the specific gifts that were given, which we do not currently have access to.
+
+
+Rosa— To figure out which industry has the most active lobbying thus the most money is important to understand where the most influence comes from. I started by loading the data related to lobby registration and activity reports csv into the dataset. I needed to look at the registration and order by the industry but the data only provided form id, lobbyist registrant, firm, employer and period. I talked to Professor Willis and found this question would be very difficult to do since it is way too broad and there is no concrete way to find the industries with the id codes not working like naics codes or a place to search the id code through to find the industry. Thus I decided to go more specific into Maryland’s market, something that was more niche so we can “find key players” as Willis put it. I decided to start on which seafood industry spent the most money on lobbying for 2021. 
+
+I started on opensecrets.org trying to reverse find the industry that seafood would be in but then struggled to find it until Tatyana informed me that opensecrets is more so federal data rather than state data so to look at followthemoney.org. I went and used the lobbyist expenditure tool and added in filters and Maryland was not one so I used open secrets at the end. Then we found that our result was probably not going to add to our memo so we talked to Professor Willis about the registration period and how it is arbitrary but we can use it to define what a “new lobbyist” is which could be interesting when comparing how much money they have contributed. We chose as a group to define new lobbyists as any that have registered within a year of Dec. 8 2021. 
+
+
+I first needed to clean the registration data specifically the registration period column so I stored it in a new variable new_lobbyist and filtered. I used a straight detector because manually would be so tedious and especially when there are dates that come in a pattern this is the most clever way to find registration dates a year before. 
+
+```{r}
+new_lobbyists_year <-
+  all_registrations %>%  
+  filter(str_detect(registration_period, "12/../20-../../..|../../21-../../.."))
+```
+3734 lobbyists have registered in the past year compared to the 9819 lobbyists on the complete list. This is 38 percent of the complete list. The increase in this past year is probably due to the pandemic being more normalized and people beginning to consume more once again therefore lobbyists are eager to register. This finding is supported by Elie's increase in gift expenses in 2021. 
+
+```{r}
+new_lobbyists_two_year <-
+  all_registrations %>%  
+  filter(str_detect(registration_period, "12/../19-../../..|../../21-../../.."))
+```
+
+We found there were 3766 lobbyists registered in the past two years. Taking the total number of lobbyists for the two year span minus the one year spans means there were only 32 lobbyists that registered from Dec. 2019 to Dec. 2020. So only 0.003 percent of lobbyists on the list were registered that year.  
+
+
+
+
+ We are looking into:
+
+Tatyana--
+
+What firm/org has hired the most lobbyists?
+This is newsworthy because it is important to inform the public on what companies and initiatives are supported by what lobbyists/industries. It leads to a more informed public who can make educated decisions when it comes to voting and financial support.
+
+Has the usual list of top firms/lobbyists changed?
+Would be interesting to know if there was a change in the handful of top lobbyists who are trying to influence state policy, give an idea of the relationships and dynamics of state govt/policy
+
+I've decided to expand the search to look at employers since that's newsworthy as well. Looking at the top lobbyist firms can provide insight about who is considered powerful in that industry. But, who hires those firms is extremely newsworthy because it provides insight into the biggest influences of state policy. Timothy Perry and Jonas Jacobson and Josh White are all partners of the same lobbying firm called Perry White Ross & Jacobson. Perry used to be a Senate staffer and White also has connections on the Hill. Jacobson has held multiple roles in state and local government in Maryland. Their firm is one of the top firms with the most lobbyists since 2018. But they seemed to get a boost in clients and hired more lobbyists starting in 2020, which makes sense because of the pandemic. On their site, health care is the first industry they list as one of their specializations. 
+
+I think one of my biggest findings is that the top lobbyists belong to a handful of the same lobbying firms, which isn't entirely surprising. Similar aspects relevant in federal lobbying are prevalent in Maryland's lobbying data. Those with personal connections after working in Congress and the Maryland legislature are the most popular lobbyists. OpenSecrets' refers to this as the Revolving Door, where former staffers and political insiders leverage their work relationships in their lobbying endeavors. While this is super interesting, it’s not really that newsworthy because this is not a new idea. 
+
+I did a lot of background research on state lobbying in the state and found interesting details/other context. The Daily Record reported(https://thedailyrecord.com/2021/01/18/ten-lobbyists-combine-for-more-than-15-million-in-billing-an-increase-vs-2019/) that Gerard "Gerry" Evans, who works for Evans & Associates, LLC, as part of the top 10 lobbyists by reported earnings in the state. But according to my queries, Evans ranks in at #19 for the number of clients for the year so far. On the flip side, John Reith ranks #2 in most clients since the most recent reporting cycle, but isn't in the same rank for the highest paid lobbyists reported by Biz Journals (https://www.bizjournals.com/baltimore/news/2019/10/10/highest-paid-lobbyists-in-maryland.html). At one point, a couple of the most popular lobbyists such as Evans and Bruce Bereano of Office of Bruce C. Bereano were banned from lobbying in the state, according to a 2016 Washington Post article (https://www.washingtonpost.com/local/md-politics/here-are-the-top-lobbyists-in-maryland-for-the-2016-legislative-session/2016/06/22/244e04dc-37ec-11e6-9ccd-d6005beac8b3_story.html). Bereano was convicted of mail fraud in 1994. He started his lobbying business in 1979, so it doesn't seem like his business was hurt by his legal time-out. Evans was convicted on multiple counts of mail and wire fraud in 2000. "He was accused of boosting his earnings by fabricating legislation that threatened his clients’ interests and then collecting fees to fight those nonexistent bills." Knowing this, it's extremely surprising that he is one of the top paid lobbyists and has some of the most clients this year. You would think that people wouldn't want to be associated with this type of behavior. 
+
+Another thing I noticed is that men outnumber women in the queries for lobbyists with the most clients. The most recent reporting period in 10/31/21 has the most women in the top 10. In this query, Lisa Jones, Camille G. Fesche, Andrea Mansfield were in the top 10. In the 10/31/2019 query, Alexandra Shull and Ann T. Ciekot were the only women in the top 10. In the query, Lisa Jones is the only woman and only Black person in the top 10. I think it would be interesting to do a deeper dive of the lack of diversity (gender and racial) in state lobbying industry and compare that to the federal lobbying industry. 
+
+I think it would be cool to dive deeper and see how many of the top lobbyists have criminal records and what kind of crimes these people are being accused of. Considering their backgrounds and professional/personal networks there might be some juicy details in those connections. 
+
+
+
+
+
+
+#fyi: reporting period is nov 1 to april 30 and may 1 to october 31 
+#rules for reporting: new and existing  clients/employers/lobbyists? how are amendments handled in the data?
+#define interesting tidbits, what's interesting and what's not 
+#include links of interesting stories about MD lobbying 
+
+#trying to see how many lobbyists do firms in have and which firm has the highest total of lobbyists in 2018, 2019 and 2020
+```{r}
+all_registrations %>% 
+  group_by(organization_firm) %>% 
+  summarise(total_lobbyists = n()) %>% 
+  arrange(desc(total_lobbyists))
+```
+
+
+#trying to see how many companies (employees) have hired lobbyist firms since 2018
+```{r}
+all_registrations %>% 
+  group_by(organization_firm) %>% 
+  summarise(total_employers = n()) %>% 
+  arrange(desc(total_employers))
+```
+
+
+
+#trying to see how many firms and lobbyists each employer has and which employers have the most 
+
+#code is running but total lobbyists and firms are the same and not sure why
+```{r}
+all_registrations %>% 
+  group_by(employer) %>% 
+  summarise(total_lobbyists =n(),total_firms =n()) %>% 
+  arrange(desc(total_firms))
+```
+
+
+#trying to see top lobbyists since 2018 
+```{r}
+all_registrations %>% 
+  group_by(lobbyist_registrant, registration_period, organization_firm) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+#don't know how to go about filtering for a reporting period since the dates are in a range in the all_registrations data frame 
+
+
+
+#looking to see how many lobbyists Perry White Ross & Jacobson and Rifkin Weiner Livingston LLC have
+```{r}
+all_registrations %>% 
+  group_by(registration_period, organization_firm) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count)) 
+```
+
+
+#string split to split registration_period into two different columns called registration_start and registration_end 
+
+#the registration period column would be more useful for me to split it into two different columns called registration_start and registration_end. the end date will be useful to have isolated so that i can use that to filter and grab all the updates from that registration period. the start date isn't consistent but the end date for registration_period is consistent and better for filtering
+```{r}
+cleaned_registrations <- all_registrations %>% 
+  mutate(new_column = str_split(registration_period, "-")) %>% 
+  rowwise() %>% 
+  mutate(registration_start = new_column[[1]], registration_end = new_column[[2]]) 
+```
+
+```{r}
+cleaned_registrations <- cleaned_registrations %>% 
+  mutate(new_column = str_split(registration_period, "-")) %>% 
+  rowwise() %>% 
+  mutate(registration_start = new_column[[1]], registration_end = new_column[[2]]) 
+```
+
+
+#change data type of registration date columns. the data in the registration period columns is a character and not a number value, so i'll need to change that with code below
+```{r}
+#cleaned_registrations <- cleaned_registrations %>% 
+mutate(registration_start = as.numeric(registration_start), registration_end = as.numeric(registration_end))
+
+
+
+#mutate to create month and day column, i.e. registration_end_month, registration_end_day
+
+#cleaned_registrations %>% 
+mutate(registration_end_month = ymd (registration_end),registration_end_day = ymd(registration_end))
+
+view(cleaned_registrations)
+```
+
+
+
+#looking at registrations in period: 12/01/20-10/31/21  
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/21') %>% 
+  group_by (lobbyist_registrant, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count)) 
+```
+
+
+
+#looking at registrations in period: 12/01/20-10/31/20  
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/21') %>% 
+  group_by (lobbyist_registrant, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count)) 
+```
+
+
+#looking at top employers in period: 12/01/20-10/31/20
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/20') %>% 
+  group_by (employer, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count)) 
+```
+
+
+#looking at top employers in period: 12/01/20-10/31/20
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end_month == '10', registration_end_day == '31') %>% 
+  group_by (employer, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count)) 
+```
+
+
+
+#top lobbyists with their firm for 10/31/18
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/18') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+#top lobbyists with their firm for 10/31/19
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/19') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+#top lobbyists with their firm for 10/31/20
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/20') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+#top lobbyists with their firm for 10/31/21
+```{r}
+cleaned_registrations %>% 
+  filter(registration_end == '10/31/21') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+#client list for Perry White Ross & Jacobson from 10/31/21
+```{r}
+cleaned_registrations %>% 
+  filter(organization_firm == 'Perry White Ross & Jacobson', registration_end == '10/31/21') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+```{r}
+cleaned_registrations %>% 
+  filter(organization_firm == 'Perry White Ross & Jacobson', registration_end == '10/31/20') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+```{r}
+cleaned_registrations %>% 
+  filter(organization_firm == 'Perry White Ross & Jacobson', registration_end == '10/31/19') %>% 
+  group_by (lobbyist_registrant, organization_firm, registration_end) %>% 
+  summarise (count =n()) %>% 
+  arrange(desc(count))
+```
+
+
+
+
+
+
+
+
+
+JR--What was the lobbying activity for the education industry for 2020 and 2021? How has it changed from 2018-2019 (pre-pandemic)? 
+This could be newsworthy since education was an industry that received a lot of attention because of the pandemic and how students, school boards, and parents were impacted. 
+
+First I wanted to find education lobbyists so I sorted the data by employer and listed it in descending order. I stored it in a variable so that it would be easier to look through.
+```{r}
+employers <-
+all_registrations %>%
+  group_by(employer) %>%
+  filter(employer == "Teachers") %>%
+  summarize(
+    total_employed = n()) %>%
+  arrange(desc(total_employed))
+ 
+```
+I found it too difficult to parse through the amount of data that was still there so I decided to look online for a list of education lobbyists. I found one on opensecrets.org (https://www.opensecrets.org/federal-lobbying/industries/summary?id=W04&cycle=2021). I downloaded the csv file of education lobbyists and imported it into R.
+```{r}
+edu_lobby <- read_csv("C:/Users/jerol/OneDrive - University of Maryland/GitHub/Data Journalism/major_assignments/data_analysis/data/os_education.csv")
+```
+Next I needed to cross reference the education lobbying data and the MD data. I first mutated the edu_lobby data so that the column names I'm merging on would be the same.
+
+```{r}
+md_edu_lobby_bad <-
+edu_lobby %>%
+  left_join(all_registrations, by=c("Client/Parent" = "employer"))
+```
+This method didn't work because the open secrets data was incomplete and didn't perfectly overlap. Instead I'm now going to try filtering for employers who have names including educational terms in the data. Skimming the educational data from open secrets I included some common terms.
+
+```{r}
+md_edu_lobby <-
+  all_activity_reports %>%
+  filter (str_detect(employer, "Education|University|School|Teach|College|Academic"))
+```
+Now that I have data that is narrowed in on education I can start to find differences in spending from 2018-2019 to 2020-2021. Since the dates are presented in a range that sometimes spans multiple years, I decided to base the spending off of the initial or starting date of the reporting period. I did so by using more string detects.
+```{r}
+twenty_twentyone <-
+md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../20-../../..|../../21-../../.."))
+
+eighteen_nineteen <-
+  md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../18-../../..|../../19-../../.."))
+
+nineteen_twenty <-
+  md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../19-../../20"))
+
+twentyone <-
+  md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../..-../../21"))
+
+```
+Now that we have our separated sets we can do some data analysis to see how it has changed over the past few years. To do that we must first change the total_expenses column from a character to a number.
+```{r}
+eighteen_nineteen$total_expenses = as.numeric(gsub("[\\$,]", "", eighteen_nineteen$total_expenses))
+
+twenty_twentyone$total_expenses = as.numeric(gsub("[\\$,]", "", twenty_twentyone$total_expenses))
+```
+2018-2019
+```{r}
+eighteen_nineteen %>%
+summarise(
+    sum_expenses = sum(total_expenses),
+    mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+  ) %>%
+  arrange(desc(sum_expenses))
+```
+2020-2021
+```{r}
+twenty_twentyone %>%
+summarise(
+    sum_expenses = sum(total_expenses),
+    mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+  ) %>%
+  arrange(desc(sum_expenses))
+```
+There's a significant decrease in the mean and median expenditures from '18-'19 to '20-'21. Mean was cut by more than half, while median was cut exactly in half. However, the sum expenses increased. Considering that the number of variables/education lobbyists increased in the dataset from 83 in '18-'19 to 260 in '20-'21.  We can see this by summarizing the number of loans below the median amounts and comparing them.
+```{r}
+eighteen_nineteen %>%
+  filter(total_expenses <= 6000) %>%
+  summarize(count=n())
+```
+In '18-'19 there were 42 lobbyists at or below the median total expenses.
+```{r}
+twenty_twentyone %>%
+  filter(total_expenses <= 6000) %>%
+  summarize(count=n())
+```
+In '20-'21 there were 163. Proportionally, the difference is 42/83~51% and 163/260~63%. That 12% difference likely accounts for the gap.
+
+Now let's drill down into some specific employers. First I want to see what companies spent the most. To do this I need to fix the total_expenses and make them a number.
+```{r}
+md_edu_lobby$total_expenses = as.numeric(gsub("[\\$,]", "", md_edu_lobby$total_expenses))
+```
+Now we can summarize.
+```{r}
+summary(md_edu_lobby)
+ 
+```
+I want to look at two things, who is spending the most money lobbying and who is lobbying the most.
+```{r}
+md_edu_lobby %>%
+  group_by(total_expenses) %>%
+  arrange(desc(total_expenses))
+ 
+```
+From this we know that the Maryland State Education Association (MSEA) spends the most amount of money among educational lobbying employers to a single lobbyist ($469,086). We also know that they likely spend the most across all employers since they appear 3 times in the top 20. The MSEA is the largest education union in the state. They represent teachers and staff at public schools in Maryland.
+
+```{r}
+md_edu_lobby %>%
+  group_by(organization_firm) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+This summary tells us that Capitol Strategies, LLC is employed in the education sector more times than any other lobbying firm. Capitol is based in Annapolis and lobbies Maryland's executive branch and general assembly exclusively. Their top employers in education are Bard Early College, Educational Testing Services, and the Maryland School Bus Contractors Association.
+
+```{r}
+md_edu_lobby %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+This summary tells us that Stevenson University has lobbied the most, 16-times since 2018. The only firm they have used is Perry White Ross & Jacobson
+```{r}
+msea <- md_edu_lobby %>%
+  filter(str_detect(organization_firm, "Maryland State Education Association"))
+
+capitol_strat <- md_edu_lobby %>%
+  filter(str_detect(organization_firm, "Capitol Strategies, LLC")) %>%
+  arrange(desc(total_expenses))
+
+su <- md_edu_lobby %>%
+  filter(str_detect(employer, "Stevenson University"))
+```
+Now I want to find out how much money these organizations have spent since 2018 in education lobbying.
+```{r}
+msea %>%
+  summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+capitol_strat %>%
+   summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+su %>%
+    summarise(sum_expenses = sum(total_expenses))
+```
+
+When looking at all of these results, one of the most newsworthy/interesting thing is the frequency of Stevenson University's lobbying. It makes sense that the state's teachers union spends the most money in education and the top lobbying firm isn't very interesting. Given that, let's drill into Stevenson and state universities more.
+
+Stevenson University is the 12th ranked university in the state according to niche.com (https://www.niche.com/colleges/stevenson-university/). It has an overall grade of B- and an average cost of $27,913.
+
+No state universities are listed, including the top rated school according to Niche in the University of Maryland, College Park. One thing that does return is another top education lobbyist in the Maryland Independent College and University Association (MICUA). The most prominent of private colleges in Maryland are a part of the organization, from Johns Hopkins to Washington College. Stevenson is also a member of the MICUA, but still spends a significant amount of money lobbying outside of the organization, $120,000 since 2018. 
+
+
+```{r}
+md_colleges <-
+  md_edu_lobby %>%
+  filter (str_detect(employer, "University|College")) %>%
+  group_by(employer)
+```
+
+```{r}
+md_colleges2 <-
+  md_edu_lobby %>%
+  filter (str_detect(employer, "Maryland Independent College and University Association|    
+Education Affiliates/Fortis College|University of Phoenix|Walden University|St. Mary's College of Maryland Foundation|Stevenson University|DeVry University|Maryland Association of Community Colleges|College of Southern Maryland|Baltimore City Community College"))
+```
+
+
+```{r}
+micua <- md_edu_lobby %>%
+  filter(str_detect(employer, "Maryland Independent College and University Association"))
+  micua %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+
+```{r}
+fortis <- md_edu_lobby %>%
+  filter(str_detect(employer, "Education Affiliates/Fortis College"))
+  fortis %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+phoenix <- md_edu_lobby %>%
+  filter(str_detect(employer, "University of Phoenix"))
+  phoenix %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+walden <- md_edu_lobby %>%
+  filter(str_detect(employer, "Walden University"))
+  walden %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+stmarys <- md_edu_lobby %>%
+  filter(str_detect(employer, "St. Mary's College of Maryland Foundation"))
+  stmarys %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+devry <- md_edu_lobby %>%
+  filter(str_detect(employer, "DeVry University"))
+  devry %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+macc <- md_edu_lobby %>%
+  filter(str_detect(employer, "Maryland Association of Community Colleges"))
+  macc %>%
+    select(employer, total_expenses) %>%
+    summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+csm <- md_edu_lobby %>%
+  filter(str_detect(employer, "College of Southern Maryland"))
+  csm %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+bccc <- md_edu_lobby %>%
+  filter(str_detect(employer, "Baltimore City Community College"))
+  bccc %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+In poking into the data and researching the MICUA, I realized that Johns Hopkins University is listed under just "Johns Hopkins" in the employer column and absent from our data. Knowing that it is a prestigious school in Maryland, I decided that there may be more higher education institutes left out so I started over and grabbed some fresh data from the Maryland Lobbying Registration. You can't select for education in its entirety as a category, but you can select for higher education institutions which serves our purpose for this section.
+```{r}
+he_18to19 <- read_csv("data/he_lobbying_18-19.csv") %>%
+  clean_names()
+
+he_20to21 <- read_csv("data/he_lobbying-20-21.csv") %>%
+  clean_names()
+```
+
+The data for 2018 to 2019 has significantly less variables. In looking at the lobbying registration website, there may be an issue with data collected in 2018. When you select higher education registration data for 2017-2018, you get 0 results. This makes any solid conclusions difficult to determine, and it near impossible to compare spending before and after covid.  The other difficulty is that the activity reports, which tell us how much money is spent, are unable to be sorted the same way as the registration data. You can see who is registering in various industries from Agriculture to Higher Education, but you can’t how much they’re spending. 
+
+```{r}
+he_18to19 %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+```{r}
+he_20to21 %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+
+```{r}
+johnshopkins <- all_activity_reports %>%
+  filter(str_detect(employer, "Johns Hopkins"))
+
+johnshopkins$total_expenses = as.numeric(gsub("[\\$,]", "", johnshopkins$total_expenses))
+
+johnshopkins %>%
+  summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+jh2021 <-
+johnshopkins %>%
+  filter(str_detect(reporting_period, "../../20-../../..|../../21-../../.."))
+
+jh1819 <-
+  johnshopkins %>%
+  filter(str_detect(reporting_period, "../../18-../../..|../../19-../../.."))
+```
+
+```{r}
+jh2021 %>%
+  summarise(sum_expenses = sum(total_expenses),
+            mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+            )
+```
+```{r}
+jh1819 %>%
+  summarise(sum_expenses = sum(total_expenses),
+            mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+            )
+```
+Because there is such a large discrepancy between the number of variables in 2018-2019 and 2020-2021 and the mean expenses are so close, it highlights the difficulty drawing conclusions. The means' being so close means and medians being so close means that very large difference in the total money spent is likely due to a lack of variables in 2018-2019. 
+
+Another issue is that the data doesn’t distinguish between Johns Hopkins the hospital and Johns Hopkins the University. In total, Johns Hopkins spent $1,005,841 since 2018, but it is hard to tell if that is both the medical center and university combined or one or the other.
+
+One last discrepency I found in the higher education data is that it doesn’t list Stevenson University, even though it is in the larger data set. Stevenson is unequivocally an institution of higher education but it is left off of the data set for them. This means a number of other institutions may be left off.
+
+Lobbying is a topic that has been covered by many news organizations in the past. It has been covered generally like in this OpenSecrets article on spending and how it increased to record highs in 2020. It’s also been covered locally like in the Washington Post article “Education groups lead in spending on lobbyists in Maryland.” Publications like the Baltimore Sun have listed the top lobbyists in the state and on transparency of the lobbying system.
+
+Because of the importance of lobbying transparency the inaccuracy of the lobbying data is concerning and the biggest takeaway. A lack of data from 2017, 2018, and 2019 makes comparison near impossible to spending today. For seemingly no reason, the data on the state website is able to be categorized for some variables but not for others. Either that data doesn’t exist, the website doesn’t work, or it is so unintuitive that there is no way the average constituent will be able to parse through it. If the goal of having a website that displays lobbying data is transparency, than the obtuse presentation of the data circumvents itself.
+
+
+
+Other coverage: 
+
+https://www.baltimoresun.com/politics/bs-md-pol-lobbyist-portal-20191031-rmu5mpy6a5gv3mwrfr66p4x3le-story.html
+
+https://www.washingtonpost.com/local/education-groups-lead-in-spending-on-lobbyists-in-maryland/2020/07/10/f941bd48-c2ce-11ea-8908-68a2b9eae9e0_story.html
+
+https://www.baltimoresun.com/politics/bs-md-lobby-spending-pg-photogallery.html
+
+https://www.opensecrets.org/news/2021/01/lobbying-spending-nears-record-high-in-2020-amid-pandemic/
+
+
+
+

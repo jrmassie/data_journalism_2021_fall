@@ -19,6 +19,7 @@ library(lubridate)
 library(ggrepel)
 library(sf)
 
+
 ```
 
 Loading data frames 
@@ -100,6 +101,14 @@ eighteen_nineteen <-
   md_edu_lobby %>%
   filter(str_detect(reporting_period, "../../18-../../..|../../19-../../.."))
 
+nineteen_twenty <-
+  md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../19-../../20"))
+
+twentyone <-
+  md_edu_lobby %>%
+  filter(str_detect(reporting_period, "../../..-../../21"))
+
 ```
 Now that we have our separated sets we can do some data analysis to see how it has changed over the past few years. To do that we must first change the total_expenses column from a character to a number.
 ```{r}
@@ -127,7 +136,7 @@ summarise(
   ) %>% 
   arrange(desc(sum_expenses))
 ```
-There's a significant decrease in the mean and median expenditures from '18-'19 to '20-'21. Mean was cut by more than half, while median was cut exactly in half. However, the sum expenses increased. Considering that the number of variables/education lobbyists increased in the dataset from 83 in '18-'19 to 260 in '20-'21. We can see this by summarizing the number of loans below the median amounts and comparing them.
+There's a significant decrease in the mean and median expenditures from '18-'19 to '20-'21. Mean was cut by more than half, while median was cut exactly in half. However, the sum expenses increased. Considering that the number of variables/education lobbyists increased in the dataset from 83 in '18-'19 to 260 in '20-'21.  We can see this by summarizing the number of loans below the median amounts and comparing them.
 ```{r}
 eighteen_nineteen %>%
   filter(total_expenses <= 6000) %>%
@@ -140,3 +149,207 @@ twenty_twentyone %>%
   summarize(count=n())
 ```
 In '20-'21 there were 163. Proportionally, the difference is 42/83~51% and 163/260~63%. That 12% difference likely accounts for the gap.
+
+Now let's drill down into some specific employers. First I want to see what companies spent the most. To do this I need to fix the total_expenses and make them a number.
+```{r}
+md_edu_lobby$total_expenses = as.numeric(gsub("[\\$,]", "", md_edu_lobby$total_expenses))
+```
+Now we can summarize.
+```{r}
+summary(md_edu_lobby)
+ 
+```
+I want to look at two things, who is spending the most money lobbying and who is lobbying the most.
+```{r}
+md_edu_lobby %>%
+  group_by(total_expenses) %>%
+  arrange(desc(total_expenses))
+  
+```
+From this we know that the Maryland State Education Association (MSEA) spends the most amount of money among educational lobbying employers to a single lobbyist ($469,086). We also know that they likely spend the most across all employers since they appear 3 times in the top 20. The MSEA is the largest education union in the state. They represent teachers and staff at public schools in Maryland.
+
+```{r}
+md_edu_lobby %>%
+  group_by(organization_firm) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+This summary tells us that Capitol Strategies, LLC is employed in the education sector more times than any other lobbying firm. Capitol is based in Annapolis and lobbies Maryland's executive branch and general assembly exclusively. Their top employers in education are Bard Early College, Educational Testing Services, and the Maryland School Bus Contractors Association.
+
+```{r}
+md_edu_lobby %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+This summary tells us that Stevenson University has lobbied the most, 16-times since 2018. The only firm they have used is Perry White Ross & Jacobson
+```{r}
+msea <- md_edu_lobby %>%
+  filter(str_detect(organization_firm, "Maryland State Education Association"))
+
+capitol_strat <- md_edu_lobby %>%
+  filter(str_detect(organization_firm, "Capitol Strategies, LLC")) %>%
+  arrange(desc(total_expenses))
+
+su <- md_edu_lobby %>%
+  filter(str_detect(employer, "Stevenson University"))
+```
+Now I want to find out how much money these organizations have spent since 2018 in education lobbying.
+```{r}
+msea %>%
+  summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+capitol_strat %>%
+   summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+su %>%
+    summarise(sum_expenses = sum(total_expenses))
+```
+
+When looking at all of these results, the most newsworthy/interesting thing is the frequency of Stevenson University's lobbying. It makes sense that the state's teachers union spends the most money in education and the top lobbying firm isn't very interesting. Given that, let's drill into Stevenson and state universities more.
+
+Stevenson University is the 12th ranked university in the state according to niche.com (https://www.niche.com/colleges/stevenson-university/). It has an overall grade of B- and an average cost of $27,913. 
+
+
+```{r}
+md_colleges <-
+  md_edu_lobby %>%
+  filter (str_detect(employer, "University|College")) %>%
+  group_by(employer)
+```
+
+```{r}
+md_colleges2 <-
+  md_edu_lobby %>%
+  filter (str_detect(employer, "Maryland Independent College and University Association|	
+Education Affiliates/Fortis College|University of Phoenix|Walden University|St. Mary's College of Maryland Foundation|Stevenson University|DeVry University|Maryland Association of Community Colleges|College of Southern Maryland|Baltimore City Community College"))
+```
+
+
+```{r}
+micua <- md_edu_lobby %>%
+  filter(str_detect(employer, "Maryland Independent College and University Association"))
+  micua %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+
+```{r}
+fortis <- md_edu_lobby %>%
+  filter(str_detect(employer, "Education Affiliates/Fortis College")) 
+  fortis %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+phoenix <- md_edu_lobby %>%
+  filter(str_detect(employer, "University of Phoenix")) 
+  phoenix %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+walden <- md_edu_lobby %>%
+  filter(str_detect(employer, "Walden University")) 
+  walden %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+stmarys <- md_edu_lobby %>%
+  filter(str_detect(employer, "St. Mary's College of Maryland Foundation")) 
+  stmarys %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+devry <- md_edu_lobby %>%
+  filter(str_detect(employer, "DeVry University")) 
+  devry %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+macc <- md_edu_lobby %>%
+  filter(str_detect(employer, "Maryland Association of Community Colleges")) 
+  macc %>% 
+    select(employer, total_expenses) %>%
+    summarise(sum_expenses = sum(total_expenses))
+```
+
+
+```{r}
+csm <- md_edu_lobby %>%
+  filter(str_detect(employer, "College of Southern Maryland")) 
+  csm %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+bccc <- md_edu_lobby %>%
+  filter(str_detect(employer, "Baltimore City Community College")) 
+  bccc %>% summarise(sum_expenses = sum(total_expenses))
+```
+
+In poking into the data, I realized that Johns Hopkins University is listed under just "Johns Hopkins" in the employer column. I decided that there may be more higher education institutes left out so I started over and grabbed some fresh data from the Maryland Lobbying Registration. You can't select for education in total on the website, but you can select for higher education institutions which serves our purpose for this section.
+```{r}
+he_18to19 <- read_csv("data/he_lobbying_18-19.csv") %>%
+  clean_names()
+
+he_20to21 <- read_csv("data/he_lobbying-20-21.csv") %>%
+  clean_names()
+```
+
+The data for 2018 to 2019 has significantly less variables. In looking at the lobbying registration website, there may be an issue with data collected in 2018. When you select higher education data for 2017-2018, you get 0 results. This makes any solid conclusions difficult to determine, but we will move forward with what we have. The other difficulty is that the activity reports, which tell us how much money is spent, 
+
+```{r}
+he_18to19 %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+```{r}
+he_20to21 %>%
+  group_by(employer) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+
+```{r}
+johnshopkins <- all_activity_reports %>%
+  filter(str_detect(employer, "Johns Hopkins"))
+
+johnshopkins$total_expenses = as.numeric(gsub("[\\$,]", "", johnshopkins$total_expenses))
+
+johnshopkins %>%
+  summarise(sum_expenses = sum(total_expenses))
+```
+
+```{r}
+jh2021 <-
+johnshopkins %>%
+  filter(str_detect(reporting_period, "../../20-../../..|../../21-../../.."))
+
+jh1819 <-
+  johnshopkins %>%
+  filter(str_detect(reporting_period, "../../18-../../..|../../19-../../.."))
+```
+
+```{r}
+jh2021 %>%
+  summarise(sum_expenses = sum(total_expenses),
+            mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+            )
+```
+```{r}
+jh1819 %>%
+  summarise(sum_expenses = sum(total_expenses),
+            mean_expenses = mean(total_expenses),
+    median_expenses = median(total_expenses)
+            )
+```
+Because there is such a large discrepancy between the number of variables in 2018-2019 and 2020-2021 and the mean expenses are so close, it is difficult to draw any conclusions. The means' being so close can account for the very large difference in the total money spent in the two time periods.
